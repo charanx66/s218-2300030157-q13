@@ -1,0 +1,32 @@
+﻿replicaCount: 2
+
+image:
+  registry: REGISTRY
+  backend:
+    repository: event-backend
+    tag: latest
+  frontend:
+    repository: event-frontend
+    tag: latest
+
+service:
+  backend:
+    port: 2025
+  frontend:
+    port: 80
+
+postgres:
+  enabled: true
+  username: eventuser
+  password: change-me
+  database: eventdb
+  storage: 5Gi
+
+ingress:
+  enabled: true
+  host: event.example.com
+  tls: false
+
+resources:
+  backend: {}
+  frontend: {}

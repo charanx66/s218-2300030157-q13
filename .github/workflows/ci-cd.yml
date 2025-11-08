@@ -1,0 +1,58 @@
+﻿name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  BACKEND_IMAGE: event-backend
+  FRONTEND_IMAGE: event-frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "18"
+
+    - name: Build backend and frontend images
+      run: |
+        docker build -t ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -f infra/docker/backend/Dockerfile .
+        docker build -t ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} -f infra/docker/frontend/Dockerfile .
+
+    - name: Log in to registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ secrets.REGISTRY_HOST }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+
+    - name: Push images
+      run: |
+        docker push ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+    - name: Set up kubectl & helm
+      uses: azure/setup-kubectl@v3
+      with:
+        version: '1.28.0'
+    - uses: azure/setup-helm@v3
+      with:
+        version: v3.12.0
+
+    - name: Deploy Helm chart
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: |
+        helm upgrade --install event-app infra/helm/event-app \
+          --set image.registry=${{ env.REGISTRY }} \
+          --set image.backend.repository=${{ env.BACKEND_IMAGE }} \
+          --set image.backend.tag=${{ github.sha }} \
+          --set image.frontend.repository=${{ env.FRONTEND_IMAGE }} \
+          --set image.frontend.tag=${{ github.sha }} \
+          --wait --timeout 10m

@@ -1,0 +1,36 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "event-app.fullname" . }}-frontend
+  labels:
+    app: {{ include "event-app.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: "{{ .Values.image.registry }}/{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: {{ .Values.service.frontend.port }}
+        resources:
+{{ toYaml .Values.resources.frontend | indent 8 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "event-app.fullname" . }}-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: {{ .Values.service.frontend.port }}

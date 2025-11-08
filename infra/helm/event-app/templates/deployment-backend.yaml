@@ -1,0 +1,55 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "event-app.fullname" . }}-backend
+  labels:
+    app: {{ include "event-app.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: "{{ .Values.image.registry }}/{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: {{ .Values.service.backend.port }}
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://{{ include "event-app.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "{{ .Values.postgres.username }}"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.service.backend.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.service.backend.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        resources:
+{{ toYaml .Values.resources.backend | indent 8 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "event-app.fullname" . }}-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+  - port: 80
+    targetPort: {{ .Values.service.backend.port }}
